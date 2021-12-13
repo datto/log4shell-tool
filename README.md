@@ -15,16 +15,16 @@ The script was originally developed as a Component for the [Datto RMM software](
 
 Three environment variables _(ie: $env:variableName)_ must be furnished, either by editing the script or by adding them in your runtime environment:
 * usrScanScope
-** Value of 1: Only scan home drive (usually C:) _(Fastest scan time)_
-** Value of 2: Scan all fixed and removable drives
-** Value of 3: Scan all drives, including Network drives _(Slowest scan time -- may take several hours)_
+    * Value of 1: Only scan home drive (usually C:) _(Fastest scan time)_
+    * Value of 2: Scan all fixed and removable drives
+    * Value of 3: Scan all drives, including Network drives _(Slowest scan time -- may take several hours)_
 *usrUpdateDefs
-** Value of `true`: Download the latest YARA definitions from Florian Roth to scan files against
-** Value of `false`: Use definitions attached
+    * Value of `true`: Download the latest YARA definitions from Florian Roth to scan files against
+    * Value of `false`: Use definitions attached
 *usrMitigate
-** Value of Y: Inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
-** Value of N: De-inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `FALSE` (Use with caution!)
-** Value of X: Ignore inoculation subroutine entirely
+    * Value of Y: Inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
+    * Value of N: De-inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `FALSE` (Use with caution!)
+    * Value of X: Ignore inoculation subroutine entirely
 
 ## Included in package
 
