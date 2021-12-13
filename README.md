@@ -5,7 +5,7 @@ _By Datto, For the MSP Community_
 ## Summary
 This is a PowerShell-based script that can be run on a Windows system (it has been neither written for, nor tested with, other platforms) to:
 * (Optionally) inoculate the system against Log4Shell attacks with vulnerable Log4j versions by setting the `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
-* Check whether any JAR files on the system contains code linking it to a vulnerable Log4j version
+    * Check whether any JAR files on the system contains code linking it to a vulnerable Log4j version
 ** _This is not conclusive and should be used for reference only_
 * Using the YARA tool and [Florian Roth's definitions](https://github.com/Neo23x0/signature-base/blob/master/yara/expl_log4j_cve_2021_44228.yar), check all JAR, LOG and TXT files on the system for indicators of Log4Shell attacks
 
