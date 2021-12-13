@@ -6,7 +6,7 @@ _By Datto, For the MSP Community_
 This is a PowerShell-based script that can be run on a Windows system (it has been neither written for, nor tested with, other platforms) to:
 * (Optionally) inoculate the system against Log4Shell attacks with vulnerable Log4j versions by setting the `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
     * Check whether any JAR files on the system contains code linking it to a vulnerable Log4j version
-** _This is not conclusive and should be used for reference only_
+    *_This is not conclusive and should be used for reference only_
 * Using the YARA tool and [Florian Roth's definitions](https://github.com/Neo23x0/signature-base/blob/master/yara/expl_log4j_cve_2021_44228.yar), check all JAR, LOG and TXT files on the system for indicators of Log4Shell attacks
 
 The script was originally developed as a Component for the [Datto RMM software](www.datto.com/rmm); however, as part of Datto's ongoing commitment to the MSP, it has been released for free for the Community.
@@ -18,10 +18,10 @@ Three environment variables _(ie: $env:variableName)_ must be furnished, either 
     * Value of 1: Only scan home drive (usually C:) _(Fastest scan time)_
     * Value of 2: Scan all fixed and removable drives
     * Value of 3: Scan all drives, including Network drives _(Slowest scan time -- may take several hours)_
-*usrUpdateDefs
+* usrUpdateDefs
     * Value of `true`: Download the latest YARA definitions from Florian Roth to scan files against
     * Value of `false`: Use definitions attached
-*usrMitigate
+* usrMitigate
     * Value of Y: Inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
     * Value of N: De-inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `FALSE` (Use with caution!)
     * Value of X: Ignore inoculation subroutine entirely
