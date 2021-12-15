@@ -6,6 +6,7 @@ _By Datto, For the MSP Community_
 - Added param block, preserving initial `$env` variable usage
 - Changed appropriate paths to point to the location of the script and not the current directory of the shell
 - Editing some formatting
+- Implemented Everything search option
 
 ## Summary
 This is a PowerShell-based script that can be run on a Windows system (it has been neither written for, nor tested with, other platforms) to:
