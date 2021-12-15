@@ -17,7 +17,7 @@ param (
 )
 
 $scriptObject = Get-Item -Path $script:PSCommandPath
-$script:workingPath = $($scriptObject.DirectoryName)
+$workingPath = $($scriptObject.DirectoryName)
 [string]$varch=[intPtr]::Size*8
 $script:varDetection=0
 $varEpoch=[int][double]::Parse((Get-Date -UFormat %s))
@@ -83,29 +83,29 @@ if ($usrUpdateDefs) {
     $varYaraNew = (New-Object System.Net.WebClient).DownloadString('https://github.com/Neo23x0/signature-base/raw/master/yara/expl_log4j_cve_2021_44228.yar')
     #quick verification check
     if ($varYaraNew -match 'TomcatBypass') {
-        Set-Content -Value $varYaraNew -Path yara.yar -Force
+        Set-Content -Value $varYaraNew -Path "$workingPath\yara.yar" -Force
         Write-Host "- New YARA definitions downloaded."
     } else {
         Write-Host "! ERROR: New YARA definition download failed."
         Write-Host "  Falling back to built-in definitions."
-        Copy-Item -Path expl_log4j_cve_2021_44228.yar -Destination yara.yar -Force
+        Copy-Item -Path "$workingPath\expl_log4j_cve_2021_44228.yar" -Destination "$workingPath\yara.yar" -Force
     }
 } else {
-    Copy-Item -Path expl_log4j_cve_2021_44228.yar -Destination yara.yar -Force
+    Copy-Item -Path "$workingPath\expl_log4j_cve_2021_44228.yar" -Destination "$workingPath\yara.yar" -Force
     Write-Host "- Not downloading new YARA definitions."
 }
 
 #check yara32 and yara64 are there and that they'll run
 foreach ($iteration in ('yara32.exe','yara64.exe')) {
-    if (!(Test-Path $iteration)) {
-        Write-Host "! ERROR: $iteration not found. It needs to be in the same directory as the script."
+    if (!(Test-Path "$workingPath\$iteration")) {
+        Write-Host "! ERROR: ""$workingPath\$iteration"" not found. It needs to be in the same directory as the script."
         Write-Host "  Download Yara from https://github.com/virustotal/yara/releases/latest and place them here."
         exit 1
     } else {
-        Write-Host "- Verified presence of $iteration."
+        Write-Host "- Verified presence of ""$workingPath\$iteration""."
     }
 
-    cmd /c "$iteration -v >nul 2>&1"
+    cmd /c """$workingPath\$iteration"" -v >nul 2>&1"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "! ERROR: YARA was unable to run on this device."
         Write-Host "  The Visual C++ Redistributable is required in order to use YARA."
@@ -118,9 +118,10 @@ foreach ($iteration in ('yara32.exe','yara64.exe')) {
 
 #start a logfile
 $host.ui.WriteErrorLine("`r`nPlease expect some permissions errors as some locations are forbidden from traversal.`r`n=====================================================`r`n")
-Set-Content -Path "log.txt" -Force -Value "Files scanned:"
-Add-Content "log.txt" -Value "====================================================="
-Add-Content "log.txt" -Value " :: Scan Started: $(get-date) ::"
+$logPath = "$workingPath\log.txt"
+Set-Content -Path $logPath -Force -Value "Files scanned:"
+Add-Content $logPath -Value "====================================================="
+Add-Content $logPath -Value " :: Scan Started: $(get-date) ::"
 
 
 #get a list of all files-of-interest on the device (depending on scope) :: GCI is broken; permissions errors when traversing root dirs cause aborts (!!!)
@@ -154,15 +155,15 @@ foreach ($file in $arrFiles) {
     } else {
         #add it to the logfile, with a pause for handling
         try {
-            Add-Content "log.txt" -Value $file -ErrorAction Stop
+            Add-Content $logPath -Value $file -ErrorAction Stop
         } catch {
             Start-Sleep -Seconds 1
-            Add-Content "log.txt" -Value $file -ErrorAction SilentlyContinue
+            Add-Content $logPath -Value $file -ErrorAction SilentlyContinue
         }
 
         #scan it
         Clear-Variable yaResult -ErrorAction SilentlyContinue
-        $yaResult = cmd /c "yara$varch.exe `"yara.yar`" `"$file`" -s"
+        $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$workingPath\$file"" -s"
         if ($yaResult) {
             #sound an alarm
             Write-Host "====================================================="
@@ -176,7 +177,7 @@ foreach ($file in $arrFiles) {
     }
 }
 
-Add-Content "log.txt" -Value " :: Scan Finished: $(get-date) ::"
+Add-Content $logPath -Value " :: Scan Finished: $(get-date) ::"
 
 if ($script:varDetection -eq 1) {
     Write-Host "====================================================="
