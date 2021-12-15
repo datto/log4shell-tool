@@ -12,8 +12,8 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory=$false)][int]$usrScanscope = $env:usrScanscope,
-    [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = $env:usrUpdateDefs,
-    [Parameter(Mandatory=$false)][char]$usrMitigate = $env:usrMitigate
+    [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = [System.Convert]::ToBoolean($env:usrUpdateDefs),
+    [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate
 )
 
 $scriptObject = Get-Item -Path $script:PSCommandPath
@@ -163,7 +163,7 @@ foreach ($file in $arrFiles) {
 
         #scan it
         Clear-Variable yaResult -ErrorAction SilentlyContinue
-        $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$workingPath\$file"" -s"
+        $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
         if ($yaResult) {
             #sound an alarm
             Write-Host "====================================================="
