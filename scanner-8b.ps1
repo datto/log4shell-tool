@@ -13,11 +13,41 @@
 param (
     [Parameter(Mandatory=$false)][int]$usrScanscope = $env:usrScanscope,
     [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = [System.Convert]::ToBoolean($env:usrUpdateDefs),
-    [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate
+    [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate,
+    [Parameter(Mandatory=$false)][switch]$EverythingSearch
 )
 
 $scriptObject = Get-Item -Path $script:PSCommandPath
 $workingPath = $($scriptObject.DirectoryName)
+if($EverythingSearch) {
+    Write-Host "Everything search requested."
+    Write-Host "Downloading Everything search."
+    $portableEverythingURL = "https://www.voidtools.com/Everything-1.4.1.1009.x64.zip"
+    $portableEverythingZIP = "$workingPath\Everything.zip"
+    $portableEverythingPath = "$workingPath\Everything"
+    Remove-Item -Path $portableEverythingZIP -ErrorAction SilentlyContinue
+    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+    (New-Object System.Net.WebClient).DownloadFile($portableEverythingURL,$portableEverythingZIP)
+    Write-Host "Expanding $portableEverythingZIP."
+    Expand-Archive -Path $portableEverythingZIP -DestinationPath $portableEverythingPath -Force -ErrorAction SilentlyContinue
+    if (!(Get-Service "Everything" -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing Everything service."
+        & "$portableEverythingPath\everything.exe" -install-service
+    }
+    Write-Host "Installing Everything config."
+    & "$portableEverythingPath\everything.exe" -install-config "$workingPath\EverythingConfig.ini"
+    Write-Host "Reindexing Everything."
+    & "$portableEverythingPath\everything.exe" -reindex -close
+    if(Get-Module -Name PSEverything -ListAvailable -ErrorAction SilentlyContinue) {
+        Write-Host "Importing PSEverything."
+        Import-Module -Name PSEverything
+    } else {
+        Write-Host "Installing PSEverything."
+        Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
+        Install-Module PSEverything
+    }
+}
+
 [string]$varch=[intPtr]::Size*8
 $script:varDetection=0
 $varEpoch=[int][double]::Parse((Get-Date -UFormat %s))
@@ -57,25 +87,30 @@ switch ($usrMitigate) {
 }
 
 #map input variable usrScanScope to an actual value
-switch ($usrScanScope) {
-    1   {
-        Write-Host "- Scan scope: Home Drive"
-        $script:varDrives = @($env:HomeDrive)
-    } 2 {
-        Write-Host "- Scan scope: Fixed & Removable Drives"
-        $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
-    } 3 {
-        Write-Host "- Scan scope: All drives, including Network"
-        $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
-    } default {
-        Write-Host "! ERROR: Unable to map scan scope variable to a value. (This should never happen!)"
-        Write-Host "  The acceptable values for env:usrScanScope are:"
-        Write-Host "    1: Scan files on Home Drive"
-        Write-Host "    2: Scan files on fixed and removable drives"
-        Write-Host "    3: Scan files on all detected drives, even network drives"
-        exit 1
+if($EverythingSearch) {
+    Write-Host "Everything search requested. Scanning all possible drives."
+} else {
+    switch ($usrScanScope) {
+        1 {
+            Write-Host "- Scan scope: Home Drive"
+            $script:varDrives = @($env:HomeDrive)
+        } 2 {
+            Write-Host "- Scan scope: Fixed & Removable Drives"
+            $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
+        } 3 {
+            Write-Host "- Scan scope: All drives, including Network"
+            $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
+        } default {
+            Write-Host "! ERROR: Unable to map scan scope variable to a value. (This should never happen!)"
+            Write-Host "  The acceptable values for env:usrScanScope are:"
+            Write-Host "    1: Scan files on Home Drive"
+            Write-Host "    2: Scan files on fixed and removable drives"
+            Write-Host "    3: Scan files on all detected drives, even network drives"
+            exit 1
+        }
     }
 }
+
 
 #if user opted to update yara rules, do that
 if ($usrUpdateDefs) {
@@ -126,13 +161,20 @@ Add-Content $logPath -Value " :: Scan Started: $(get-date) ::"
 
 #get a list of all files-of-interest on the device (depending on scope) :: GCI is broken; permissions errors when traversing root dirs cause aborts (!!!)
 $arrFiles=@()
-foreach ($drive in $varDrives) {
-    Get-ChildItem "$drive\" -force | Where-Object {$_.PSIsContainer} | ForEach-Object {
-        Get-ChildItem -path "$drive\$_\" -rec -force -include *.jar,*.log,*.txt -ErrorAction 0 | ForEach-Object {
-            $arrFiles += $_.FullName
+if($EverythingSearch) {
+    $arrFiles = Search-Everything -Global -Extension "jar","log","txt"
+    & "$portableEverythingPath\everything.exe" -uninstall-service
+    Get-Process -Name Everything | Where-Object {$_.Path -eq "$portableEverythingPath\everything.exe"} | Stop-Process -Force
+} else {
+    foreach ($drive in $varDrives) {
+        Get-ChildItem "$drive\" -force | Where-Object {$_.PSIsContainer} | ForEach-Object {
+            Get-ChildItem -path "$drive\$_\" -rec -force -include *.jar,*.log,*.txt -ErrorAction 0 | ForEach-Object {
+                $arrFiles += $_.FullName
+            }
         }
     }
 }
+Write-Host "Scanning $($arrFiles.Length) files for potential vulnerabilities."
 
 #scan i: JARs containing vulnerable Log4j code
 Write-Host "====================================================="
