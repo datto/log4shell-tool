@@ -9,6 +9,12 @@
     usrUpdateDefs (bool):  download the latest yara definitions from florian?
     usrMitigate   (Y/N/X): ternary option to enable/disable 2.10+ mitigation (or do nothing). https://twitter.com/CyberRaiju/status/1469505680138661890
 #>
+[CmdletBinding()]
+param (
+    [Parameter(Mandatory=$false)][int]$usrScanscope = $env:usrScanscope,
+    [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = $env:usrUpdateDefs,
+    [Parameter(Mandatory=$false)][char]$usrMitigate = $env:usrMitigate
+)
 
 [string]$varch=[intPtr]::Size*8
 $script:varDetection=0
@@ -31,7 +37,7 @@ if (test-path "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -ErrorAction Sile
 }
 
 #did the user turn NOLOOKUPS (2.10+ mitigation) on?
-switch ($env:usrMitigate) {
+switch ($usrMitigate) {
     'Y' {
         if ([System.Environment]::GetEnvironmentVariable('LOG4J_FORMAT_MSG_NO_LOOKUPS','machine') -eq 'true') {
             write-host "- Log4j 2.10+ exploit mitigation (LOG4J_FORMAT_MSG_NO_LOOKUPS) already set."
@@ -49,7 +55,7 @@ switch ($env:usrMitigate) {
 }
 
 #map input variable usrScanScope to an actual value
-switch ($env:usrScanScope) {
+switch ($usrScanScope) {
     1   {
         write-host "- Scan scope: Home Drive"
         $script:varDrives=@($env:HomeDrive)
@@ -70,7 +76,7 @@ switch ($env:usrScanScope) {
 }
 
 #if user opted to update yara rules, do that
-if ($env:usrUpdateDefs -match 'true') {
+if ($usrUpdateDefs) {
     [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
     $varYaraNew=(new-object System.Net.WebClient).DownloadString('https://github.com/Neo23x0/signature-base/raw/master/yara/expl_log4j_cve_2021_44228.yar')
     #quick verification check
