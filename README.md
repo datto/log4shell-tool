@@ -2,6 +2,11 @@
 ### Build 8b, 13th December 2021
 _By Datto, For the MSP Community_
 
+## Fork Edits
+- Added param block, preserving initial `$env` variable usage
+- Changed appropriate paths to point to the location of the script and not the current directory of the shell
+- Editing some formatting
+
 ## Summary
 This is a PowerShell-based script that can be run on a Windows system (it has been neither written for, nor tested with, other platforms) to:
 * (Optionally) inoculate the system against Log4Shell attacks with vulnerable Log4j versions by setting the `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
