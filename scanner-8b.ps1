@@ -1,15 +1,4 @@
 <#
-    Log4j Vulnerability (CVE-2021-44228) file scanner [windows] :: build 8b/seagull
-    Uses Florian Roth and Jai Minton's research (thank you!)
-    RELEASED PUBLICLY for all MSPs, originally a Datto RMM ComStore Component.
-    If you use code from this script, please credit Datto & seagull.
-
-    USER VARIABLES:
-    usrScanscope  (1/2/3): just home drive / all fixed drives / all drives
-    usrUpdateDefs (bool):  download the latest yara definitions from florian?
-    usrMitigate   (Y/N/X): ternary option to enable/disable 2.10+ mitigation (or do nothing). https://twitter.com/CyberRaiju/status/1469505680138661890
-#>
-<#
 .SYNOPSIS
     Log4j Vulnerability (CVE-2021-44228) file scanner [windows] :: build 8b/seagull - ProVal Tech Fork
 .EXAMPLE
