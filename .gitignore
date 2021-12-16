@@ -1,3 +1,4 @@
 *.txt
 Everything/*
 Everything.zip
+.vscode/*
