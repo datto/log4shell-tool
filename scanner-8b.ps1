@@ -89,6 +89,7 @@ switch ($usrMitigate) {
 #map input variable usrScanScope to an actual value
 if($EverythingSearch) {
     Write-Host "Everything search requested. Scanning all possible drives."
+    $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
 } else {
     switch ($usrScanScope) {
         1 {
@@ -219,15 +220,36 @@ foreach ($file in $arrFiles) {
     }
 }
 
+Write-Host "====================================================="
+Write-Host "- Scanning for known vulnerable libraries via Luna scan......"
+Write-Host "Ref: https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell"
+$lunaUrl = "https://github.com/lunasec-io/lunasec/releases/download/v1.3.0-log4shell/log4shell_1.3.0-log4shell_Windows_x86_64.exe"
+$lunaPath = "$workingPath\log4shell.exe"
+$lunaLog = "$workingPath\luna.log"
+Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $lunaLog -Force -ErrorAction SilentlyContinue
+[Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+(New-Object System.Net.WebClient).DownloadFile($lunaUrl,$lunaPath)
+foreach($drive in $script:varDrives) {
+    $lunaResults = @(cmd /c """$lunaPath"" s --json $drive\ 2>&1")
+    Add-Content -Value $lunaResults -Path $lunaLog
+    foreach($entry in $lunaResults) {
+        if($entry -match """severity"":") {
+            Write-Host "! LUNA DETECTION: $entry"
+            $script:varDetection = 1
+        }
+    }
+}
 Add-Content $logPath -Value " :: Scan Finished: $(get-date) ::"
 
 if ($script:varDetection -eq 1) {
     Write-Host "====================================================="
-    Write-Host "! Evidence of one or more Log4Shell attack attempts has been found on the system."
-    Write-Host "  The location of the files demonstrating this are noted in the following log:"
-    Write-Host "  $env:PROGRAMDATA\CentraStage\L4Jdetections.txt"
+    Write-Host "! Evidence of one or more Log4Shell attack attempts, vulnerable files, or vulnerable libraries has been found on the system."
+    Write-Host "  The location of the files demonstrating this are noted in the following logs:"
+    Write-Host "  Vulnerable files/Attack Attempts: $env:PROGRAMDATA\CentraStage\L4Jdetections.txt"
+    Write-Host "  Vulnerable libraries: $lunaLog"
 } else {
-    Write-Host "- There is no indication that this system has received Log4Shell attack attempts ."
+    Write-Host "- There is no indication that this system has vulnerable files, libraries, or has received Log4Shell attack attempts."
 }
 
 Write-Host `r
