@@ -124,7 +124,7 @@ switch ($usrMitigate) {
 #map input variable usrScanScope to an actual value
 if($EverythingSearch) {
     Write-Host "Everything search requested. Scanning all possible drives."
-    $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
+    $script:varDrives = @(Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID})
 } else {
     switch ($usrScanScope) {
         1 {
@@ -132,10 +132,10 @@ if($EverythingSearch) {
             $script:varDrives = @($env:HomeDrive)
         } 2 {
             Write-Host "- Scan scope: Fixed & Removable Drives"
-            $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
+            $script:varDrives = @(Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.DriveType -eq 2 -or $_.DriveType -eq 3} | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID})
         } 3 {
             Write-Host "- Scan scope: All drives, including Network"
-            $script:varDrives = Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID}
+            $script:varDrives = @(Get-WmiObject -Class Win32_logicaldisk | Where-Object {$_.FreeSpace} | ForEach-Object {$_.DeviceID})
         } default {
             Write-Host "! ERROR: Unable to map scan scope variable to a value. (This should never happen!)"
             Write-Host "  The acceptable values for env:usrScanScope are:"
