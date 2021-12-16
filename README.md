@@ -1,5 +1,5 @@
 # Log4Shell Enumeration, Mitigation and Attack Detection Tool
-### Build 8b, 13th December 2021
+### Build 9c [GitHub Version], 16th December 2021
 _By Datto, For the MSP Community_
 
 ## Summary
@@ -30,6 +30,14 @@ Three environment variables _(ie: $env:variableName)_ must be furnished, either 
 
 * [Yara](https://github.com/VirusTotal/yara) 4.1.3-1755 (32- & 64-bit) & COPYING document
 * Florian Roth's YARA definitions for Log4Shell as of 13th December 2021
+
+## Changelog
+* Build 8b > Build 9c
+    * Readability improvements for users running script from a single PowerShell console window
+    * Log.txt and L4JDetectiond.txt will be written to local directories if C:\ProgramData\CentraStage does not exist
+    * Example variables commented out at beginning of script for easy onboarding
+    * Script now checks for administrative status
+    * Script does not refer to UDFs for Non-RMM partners anymore
 
 ## Credits
 This script was written by seagull for Datto RMM and the wider MSP Community. It may be freely copied, edited and redistributed provided credits to Datto, seagull & a link to this GitHub repo remain in the comments.  
