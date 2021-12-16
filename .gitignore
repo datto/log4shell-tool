@@ -1,4 +1,6 @@
 *.txt
+*.log
+log4shell.exe
 Everything/*
 Everything.zip
 .vscode/*
