@@ -9,9 +9,44 @@
     usrUpdateDefs (bool):  download the latest yara definitions from florian?
     usrMitigate   (Y/N/X): ternary option to enable/disable 2.10+ mitigation (or do nothing). https://twitter.com/CyberRaiju/status/1469505680138661890
 #>
+<#
+.SYNOPSIS
+    Log4j Vulnerability (CVE-2021-44228) file scanner [windows] :: build 8b/seagull - ProVal Tech Fork
+.EXAMPLE
+    Runs the scan tool, using Everything (https://www.voidtools.com) to search for files. Updates YARA definitions and adds the env variable LOG4J_FORMAT_MSG_NO_LOOKUPS mitigation.
+    PS C:\> .\scanner-8b.ps1 -EverythingSearch -usrUpdateDefs $true -usrMitigate 'Y'
+.PARAMETER usrScanscope
+    Sets the scope for drive scanning. -EverythingSearch overrides this setting.
+    1 - Home drive only
+    2 - All non-network drives
+    3 - All drives (local and network)
+.PARAMETER usrUpdateDefs
+    Determines if defintion updates for YARA will be updated before scanning.
+    $true - Definitions will be updated.
+    $false - Definitions will not be updated.
+.PARAMETER usrMitigate
+    Determines if the LOG4J_FORMAT_MSG_NO_LOOKUPS mitigation will be applied.
+    'Y' - Mitigation will be applied.
+    'N' - Mitigation will be removed.
+    'X' - Take no action.
+.PARAMETER EverythingSearch
+    Use this switch to enable searching with Everything (https://www.voidtools.com) instead of Get-ChildItem.
+    This will install the PSEverything module from PSGallery and temporarily install the Everything service.
+.NOTES
+    Uses Florian Roth and Jai Minton's research (thank you!)
+    RELEASED PUBLICLY for all MSPs, originally a Datto RMM ComStore Component.
+    If you use code from this script, please credit Datto & seagull.
+    Fork by ProVal Tech
+    Fork Changes:
+    - Added param block, preserving initial $env variable usage
+    - Changed appropriate paths to point to the location of the script and not the current directory of the shell
+    - Editing some formatting
+    - Implemented Everything search option
+    - Implemented Luna scan from https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell
+#>
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory=$false)][int]$usrScanscope = $env:usrScanscope,
+    [Parameter(Mandatory=$false)][ValidateSet(1,2,3)][int]$usrScanscope = $env:usrScanscope,
     [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = [System.Convert]::ToBoolean($env:usrUpdateDefs),
     [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate,
     [Parameter(Mandatory=$false)][switch]$EverythingSearch
