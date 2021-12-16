@@ -136,7 +136,6 @@ if($EverythingSearch) {
     }
 }
 
-
 #if user opted to update yara rules, do that
 if ($usrUpdateDefs) {
     [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
