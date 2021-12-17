@@ -67,8 +67,14 @@ if($EverythingSearch) {
         Import-Module -Name PSEverything
     } else {
         Write-Host "Installing PSEverything."
+        Install-PackageProvider -Name NuGet -Force -ErrorAction SilentlyContinue
         Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
         Install-Module PSEverything
+    }
+    if(-not (Get-Module -Name PSEverything -ErrorAction SilentlyContinue)) {
+        Write-Host "Failed to import PSEverything. Reverting back to Get-ChildItem."
+        $EverythingSearch = $false
+        $usrScanScope = 2
     }
 }
 
@@ -192,7 +198,7 @@ if($EverythingSearch) {
 } else {
     foreach ($drive in $varDrives) {
         Get-ChildItem "$drive\" -force | Where-Object {$_.PSIsContainer} | ForEach-Object {
-            Get-ChildItem -path "$drive\$_\" -rec -force -include *.jar,*.log,*.txt -ErrorAction 0 | ForEach-Object {
+            Get-ChildItem -path "$drive\$_\" -Recurse -Force -ErrorAction 0 | Where-Object {$_.Extension -in ".jar",".log",".txt"} | ForEach-Object {
                 $arrFiles += $_.FullName
             }
         }
