@@ -49,6 +49,7 @@ if($EverythingSearch) {
     $portableEverythingURL = "https://www.voidtools.com/Everything-1.4.1.1009.x64.zip"
     $portableEverythingZIP = "$workingPath\Everything.zip"
     $portableEverythingPath = "$workingPath\Everything"
+    Get-Process -Name Everything | Where-Object {$_.Path -eq "$portableEverythingPath\everything.exe"} | Stop-Process -Force
     Remove-Item -Path $portableEverythingZIP -ErrorAction SilentlyContinue
     [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
     (New-Object System.Net.WebClient).DownloadFile($portableEverythingURL,$portableEverythingZIP)
