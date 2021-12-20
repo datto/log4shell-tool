@@ -77,6 +77,7 @@ if($EverythingSearch) {
     }
     if(-not (Get-Module -Name PSEverything -ErrorAction SilentlyContinue)) {
         Write-Host "Failed to import PSEverything. Reverting back to Get-ChildItem."
+        & "$portableEverythingPath\everything.exe" -uninstall-service
         $EverythingSearch = $false
         $usrScanScope = 2
     }
