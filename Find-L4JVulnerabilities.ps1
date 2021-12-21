@@ -241,6 +241,8 @@ if($powershellOutdated) { return }
 $skipYARA = $false
 $yaraLog = "$workingPath\yara-log.txt"
 $lunaLog = "$workingPath\luna-log.txt"
+Remove-Item -Path $yaraLog -ErrorAction SilentlyContinue
+Remove-Item -Path $lunaLog -ErrorAction SilentlyContinue
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 if($EverythingSearch) {
     Write-Log -Text "Everything search requested." -Type LOG
@@ -365,7 +367,6 @@ foreach ($iteration in ('yara32.exe','yara64.exe')) {
     }
 }
 
-#start a logfile
 Write-Log -Text "Please expect some permissions errors as some locations are forbidden from traversal." -Type WARN
 Write-Log -Text " :: Scan Started: $(get-date) ::"
 
@@ -399,7 +400,7 @@ Write-Log -Text "Scanning for JAR files containing potentially insecure Log4j co
 $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
     if (Select-String -Quiet -Path $_ "JndiLookup.class") {
         Write-Log -Text "! ALERT: Potentially vulnerable file at $($_)!" -Type WARN
-        $script:varDetection=1
+        $script:varDetection = 1
     }
 }
 
@@ -407,16 +408,19 @@ if(-not $skipYARA) {
     #scan ii: YARA for logfiles & JARs
     Write-Log -Text "Scanning LOGs, TXTs and JARs for common attack strings via YARA scan."
     foreach ($file in $arrFiles) {
-        if ($file -notmatch "Find-L4JVulnerabilities|yara-log|luna-log") {
+        if ($file -notmatch "Find-L4JVulnerabilities|yara-log|luna-log|L4Jdetections|L4JConsoleLog|luna\.log") {
             $yaResult = $null
             $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
             if ($yaResult) {
-                $yaResult = (if($yaResult.length -gt 128) {"Truncated result to 128 characters: $($yaResult.SubString(0,128))"} else {$yaResult})
                 Write-Log -Text "====================================================="
                 $script:varDetection = 1
                 Write-Log -Text "! DETECTION:"
-                Write-Log -Text $yaResult
-                Add-Content -Path $yaraLog -Value $yaResult
+                $yaResultsTruncated = ($yaResult | Select-String -Pattern $file -SimpleMatch)
+                foreach($yaEntry in $yaResultsTruncated) {
+                    Write-Log -Text $yaEntry
+                    Add-Content -Path $yaraLog -Value $yaEntry
+                }
+                Write-Log -Text "Found $($yaResult.Count - $yaResultsTruncated.Count) examples of attack attempts in file '$file'"
             }
         }
     }
