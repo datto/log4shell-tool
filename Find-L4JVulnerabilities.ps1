@@ -41,6 +41,202 @@ param (
     [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate,
     [Parameter(Mandatory=$false)][switch]$EverythingSearch
 )
+
+#region Bootstrap
+$logPath = $null
+$dataPath = $null
+$errorPath = $null
+$workingPath = $null
+$scriptTitle = $null
+$powershellTargetVersion = 5
+$powershellOutdated = $false
+$powershellUpgraded = $false
+$isElevated = $false
+
+function Set-Environment {
+    <#
+    .SYNOPSIS
+        Sets ProVal standard variables for logging and error handling.
+    .EXAMPLE
+        PS C:\> Set-Environment
+    #>
+    $scriptObject = Get-Item -Path $script:PSCommandPath
+    $script:workingPath = $($scriptObject.DirectoryName)
+    $script:logPath = "$($scriptObject.DirectoryName)\$($scriptObject.BaseName)-log.txt"
+    $script:dataPath = "$($scriptObject.DirectoryName)\$($scriptObject.BaseName)-data.txt"
+    $script:errorPath = "$($scriptObject.DirectoryName)\$($scriptObject.BaseName)-error.txt"
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal $identity
+    $script:isElevated = $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+    Remove-Item -Path $script:dataPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $script:errorPath -Force -ErrorAction SilentlyContinue
+    $script:scriptTitle = $scriptObject.BaseName
+    Write-Log -Text "-----------------------------------------------" -Type INIT
+    Write-Log -Text $scriptTitle -Type INIT
+    Write-Log -Text "System: $($env:COMPUTERNAME)" -Type INIT
+    Write-Log -Text "User: $($env:USERNAME)" -Type INIT
+    Write-Log -Text "OS Bitness: $($env:PROCESSOR_ARCHITECTURE)" -Type INIT
+    Write-Log -Text "PowerShell Bitness: $(if([Environment]::Is64BitProcess) {64} else {32})" -Type INIT
+    Write-Log -Text "PowerShell Version: $(Get-Host | Select-Object -ExpandProperty Version | Select-Object -ExpandProperty Major)" -Type INIT
+    Write-Log -Text "-----------------------------------------------" -Type INIT
+}
+
+function Write-LogHelper {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true, ParameterSetName="String")]
+        [AllowEmptyString()]
+        [string]$Text,
+        [Parameter(Mandatory=$true, ParameterSetName="String")]
+        [string]$Type
+    )
+    $formattedLog = "$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))  $($Type.PadRight(8)) $Text"
+    switch ($Type) {
+        "LOG" { 
+            Write-Host -Object $formattedLog
+            Add-Content -Path $script:logPath -Value $formattedLog
+        }
+        "INIT" {
+            Write-Host -Object $formattedLog -ForegroundColor White -BackgroundColor DarkBlue
+            Add-Content -Path $script:logPath -Value $formattedLog
+        }
+        "WARN" {
+            Write-Host -Object $formattedLog -ForegroundColor Black -BackgroundColor DarkYellow
+            Add-Content -Path $script:logPath -Value $formattedLog
+        }
+        "ERROR" {
+            Write-Host -Object $formattedLog -ForegroundColor White -BackgroundColor DarkRed
+            Add-Content -Path $script:logPath -Value $formattedLog
+            Add-Content -Path $script:errorPath -Value $formattedLog
+        }
+        "SUCCESS" {
+            Write-Host -Object $formattedLog -ForegroundColor White -BackgroundColor DarkGreen
+            Add-Content -Path $script:logPath -Value $formattedLog
+        }
+        "DATA" {
+            Write-Host -Object $formattedLog -ForegroundColor White -BackgroundColor Blue
+            Add-Content -Path $script:logPath -Value $formattedLog
+            Add-Content -Path $script:dataPath -Value $Text
+        }
+        Default {
+            Write-Host -Object $formattedLog
+            Add-Content -Path $script:logPath -Value $formattedLog
+        }
+    }
+}
+
+function Write-Log {
+    <#
+    .SYNOPSIS
+        Writes a message to a log file, the console, or both.
+    .EXAMPLE
+        PS C:\> Write-Log -Text "An error occurred." -Type ERROR
+        This will write an error to the console, the log file, and the error log file.
+    .PARAMETER Text
+        The message to pass to the log.
+    .PARAMETER Type
+        The type of log message to pass in. The options are:
+        LOG     - Outputs to the log file and console.
+        WARN    - Outputs to the log file and console.
+        ERROR   - Outputs to the log file, error file, and console.
+        SUCCESS - Outputs to the log file and console.
+        DATA    - Outputs to the log file, data file, and console.
+        INIT    - Outputs to the log file and console.
+    .NOTES
+        This function is dependant on being run within a script. This will not work run directly from the console.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true, Position = 0, ParameterSetName="String")]
+        [AllowEmptyString()][Alias("Message")]
+        [string]$Text,
+        [Parameter(Mandatory=$true, Position = 0, ParameterSetName="StringArray")]
+        [AllowEmptyString()]
+        [string[]]$StringArray,
+        [Parameter(Mandatory=$false, Position = 1, ParameterSetName="String")]
+        [Parameter(Mandatory=$false, Position = 1, ParameterSetName="StringArray")]
+        [string]$Type = "LOG"
+    )
+    if($script:PSCommandPath -eq '') {
+        Write-Error -Message "This function cannot be run directly from a terminal." -Category InvalidOperation
+        return
+    }
+    if($null -eq $script:logPath) {
+        Set-Environment
+    }
+
+    if($StringArray) {
+        foreach($logItem in $StringArray) {
+            Write-LogHelper -Text $logItem -Type $Type
+        }
+    } elseif($Text) {
+        Write-LogHelper -Text $Text -Type $Type
+    }
+}
+
+Register-ArgumentCompleter -CommandName Write-Log -ParameterName Type -ScriptBlock {"LOG","WARN","ERROR","SUCCESS","DATA","INIT"}
+
+function Install-Chocolatey {
+    if($env:Path -notlike "*C:\ProgramData\chocolatey\bin*") {
+        $env:Path = $env:Path + ';C:\ProgramData\chocolatey\bin'
+    }
+    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+    if(Test-Path -Path "C:\ProgramData\chocolatey\bin\choco.exe") {
+        Write-Log -Text "Chocolatey installation detected." -Type LOG
+        choco upgrade chocolatey -y | Out-Null
+        choco feature enable -n=allowGlobalConfirmation -confirm | Out-Null
+        choco feature disable -n=showNonElevatedWarnings -confirm | Out-Null
+        return 0
+    } else {
+        Write-Log -Text "Chocolatey installation failed." -Type ERROR
+        return 1
+    }
+}
+
+function Update-PowerShell {
+    if(-not $isElevated) {
+        Write-Log -Text "The current PowerShell session is not elevated. PowerShell will not be upgraded." -Type FAIL
+        return
+    }
+    Set-ExecutionPolicy -ExecutionPolicy Bypass -Force
+    $powershellMajorVersion = Get-Host | Select-Object -ExpandProperty Version | Select-Object -ExpandProperty Major
+    if($powershellMajorVersion -lt $script:powershellTargetVersion) {
+        $script:powershellOutdated = $true
+        Write-Log -Text "The version of PowerShell ($powershellMajorVersion) will be upgraded to version $($script:powershellTargetVersion)." -Type LOG
+        if($(Install-Chocolatey) -ne 0) {
+            Write-Log -Text "Unable to install Chocolatey." -Type ERROR
+            return
+        }
+        try {$powerShellInstalled = $(choco list -le "PowerShell") -like "PowerShell*"} catch {}
+        if($powerShellInstalled) {
+            Write-Log -Text "PowerShell has already been updated to $powerShellInstalled but is running under version $powershellMajorVersion. Ensure that the machine has rebooted after the update." -Type ERROR
+            $script:powershellUpgraded = $true
+            return
+        }
+        Write-Log -Text "Starting PowerShell upgrade." -Type LOG
+        cup powershell -y -Force
+        Start-Sleep -Seconds 5
+        $powerShellInstalled = $(choco list -le "PowerShell") -like "PowerShell*"
+        if($powerShellInstalled) {
+            Write-Log -Text "Updated to $powerShellInstalled. A reboot is required for this process to continue." -Type LOG
+            $script:powershellUpgraded = $true
+            return
+        } else {
+            Write-Log -Text "Something went wrong with the PowerShell upgrade. The process is unable to continue." -Type ERROR
+            return
+        }
+    } else {
+        Write-Log -Text "PowerShell is already at or above version $($script:powershellTargetVersion)." -Type LOG
+    }
+}
+Set-Environment
+Update-PowerShell
+if($powershellUpgraded) { return }
+if($powershellOutdated) { return }
+#endregion
+
+#region Process
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 $scriptObject = Get-Item -Path $script:PSCommandPath
 $workingPath = $($scriptObject.DirectoryName)
@@ -85,9 +281,9 @@ if($EverythingSearch) {
     }
 }
 
-[string]$varch=[intPtr]::Size*8
-$script:varDetection=0
-$varEpoch=[int][double]::Parse((Get-Date -UFormat %s))
+[string]$varch = [intPtr]::Size * 8
+$script:varDetection = 0
+$varEpoch = [int][double]::Parse((Get-Date -UFormat %s))
 
 Write-Host "Log4j/Log4Shell CVE-2021-44228 Scanning/Mitigation Tool (seagull/Datto)"
 Write-Host "======================================================================="
@@ -300,3 +496,4 @@ Write-Host `r
 Write-Host "Datto recommends that you follow best practices with your systems by implementing WAF rules,"
 Write-Host "mitigation and remediation recommendations from your vendors. For more information on Datto's"
 Write-Host "response to the log4j vulnerabilty, please refer to https://www.datto.com/blog/dattos-response-to-log4shell."
+#endregion
