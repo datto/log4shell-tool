@@ -258,7 +258,9 @@ if($EverythingSearch) {
     Remove-Item -Path $portableEverythingZIP -ErrorAction SilentlyContinue
     (New-Object System.Net.WebClient).DownloadFile($portableEverythingURL,$portableEverythingZIP)
     Write-Log -Text "Expanding '$portableEverythingZIP'." -Type LOG
-    Expand-Archive -Path $portableEverythingZIP -DestinationPath $portableEverythingPath -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $portableEverythingPath -Recurse -Force -ErrorAction SilentlyContinue
+    Add-Type -Assembly System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($portableEverythingZIP, $portableEverythingPath)
     if (!(Get-Service "Everything" -ErrorAction SilentlyContinue)) {
         Write-Log -Text "Installing Everything service."
         & "$portableEverythingPath\everything.exe" -install-service
