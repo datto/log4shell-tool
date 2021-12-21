@@ -32,6 +32,7 @@
     - Editing some formatting
     - Implemented Everything search option
     - Implemented Luna scan from https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell
+    - Implemented C++ installation
 #>
 [CmdletBinding()]
 param (
@@ -40,9 +41,10 @@ param (
     [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate,
     [Parameter(Mandatory=$false)][switch]$EverythingSearch
 )
-
+[Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 $scriptObject = Get-Item -Path $script:PSCommandPath
 $workingPath = $($scriptObject.DirectoryName)
+$skipYARA = $false
 if($EverythingSearch) {
     Write-Host "Everything search requested."
     Write-Host "Downloading Everything search."
@@ -54,7 +56,6 @@ if($EverythingSearch) {
         Get-Process -Name Everything -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "$portableEverythingPath\everything.exe"} -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
     Remove-Item -Path $portableEverythingZIP -ErrorAction SilentlyContinue
-    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
     (New-Object System.Net.WebClient).DownloadFile($portableEverythingURL,$portableEverythingZIP)
     Write-Host "Expanding $portableEverythingZIP."
     Expand-Archive -Path $portableEverythingZIP -DestinationPath $portableEverythingPath -Force -ErrorAction SilentlyContinue
@@ -72,6 +73,7 @@ if($EverythingSearch) {
     } else {
         Write-Host "Installing PSEverything."
         Install-PackageProvider -Name NuGet -Force -ErrorAction SilentlyContinue
+        Register-PSRepository -Default
         Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
         Install-Module PSEverything
     }
@@ -179,10 +181,14 @@ foreach ($iteration in ('yara32.exe','yara64.exe')) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "! ERROR: YARA was unable to run on this device."
         Write-Host "  The Visual C++ Redistributable is required in order to use YARA."
-        if ($env:CS_CC_HOST) {
-            Write-Host "  An installer Component is available from the ComStore."
+        Write-Host "  Installing..."
+        (New-Object System.Net.WebClient).DownloadFile("https://aka.ms/vs/17/release/vc_redist.x64.exe","$workingPath\vc_redist.x64.exe")
+        & "$workingPath\vc_redist.x64.exe" /s
+        cmd /c """$workingPath\$iteration"" -v >nul 2>&1"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  YARA was still unable to run. Skipping YARA scanning."
+            $skipYARA = $true
         }
-        exit 1
     }
 }
 
@@ -223,33 +229,35 @@ $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
     }
 }
 
-#scan ii: YARA for logfiles & JARs
-Write-Host "====================================================="
-Write-Host "- Scanning LOGs, TXTs and JARs for common attack strings via YARA scan......"
-foreach ($file in $arrFiles) {
-    if ($file -match 'CentraStage' -or $file -match 'L4Jdetections\.txt') {
-        #do nothing -- this isn't a security threat; we're looking at the pathname of the log, not the contents
-    } else {
-        #add it to the logfile, with a pause for handling
-        try {
-            Add-Content $logPath -Value $file -ErrorAction Stop
-        } catch {
-            Start-Sleep -Seconds 1
-            Add-Content $logPath -Value $file -ErrorAction SilentlyContinue
-        }
+if(-not $skipYARA) {
+    #scan ii: YARA for logfiles & JARs
+    Write-Host "====================================================="
+    Write-Host "- Scanning LOGs, TXTs and JARs for common attack strings via YARA scan......"
+    foreach ($file in $arrFiles) {
+        if ($file -match 'CentraStage' -or $file -match 'L4Jdetections\.txt') {
+            #do nothing -- this isn't a security threat; we're looking at the pathname of the log, not the contents
+        } else {
+            #add it to the logfile, with a pause for handling
+            try {
+                Add-Content $logPath -Value $file -ErrorAction Stop
+            } catch {
+                Start-Sleep -Seconds 1
+                Add-Content $logPath -Value $file -ErrorAction SilentlyContinue
+            }
 
-        #scan it
-        Clear-Variable yaResult -ErrorAction SilentlyContinue
-        $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
-        if ($yaResult) {
-            #sound an alarm
-            Write-Host "====================================================="
-            $script:varDetection=1
-            Write-Host "! DETECTION:"
-            Write-Host $yaResult
-            #write to a file
-            if (!(Test-Path "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -ErrorAction SilentlyContinue)) {Set-Content -path "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -Value "! INFECTION DETECTION !`r`n$(get-date)"}
-            Add-Content "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -Value $yaResult
+            #scan it
+            Clear-Variable yaResult -ErrorAction SilentlyContinue
+            $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
+            if ($yaResult) {
+                #sound an alarm
+                Write-Host "====================================================="
+                $script:varDetection=1
+                Write-Host "! DETECTION:"
+                Write-Host $yaResult
+                #write to a file
+                if (!(Test-Path "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -ErrorAction SilentlyContinue)) {Set-Content -path "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -Value "! INFECTION DETECTION !`r`n$(get-date)"}
+                Add-Content "$env:PROGRAMDATA\CentraStage\L4Jdetections.txt" -Value $yaResult
+            }
         }
     }
 }
