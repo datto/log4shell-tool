@@ -1,5 +1,6 @@
 *.txt
 *.log
+*.csv
 log4shell.exe
 Everything/*
 Everything.zip
