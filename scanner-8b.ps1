@@ -183,7 +183,9 @@ foreach ($iteration in ('yara32.exe','yara64.exe')) {
         Write-Host "  The Visual C++ Redistributable is required in order to use YARA."
         Write-Host "  Installing..."
         (New-Object System.Net.WebClient).DownloadFile("https://aka.ms/vs/17/release/vc_redist.x64.exe","$workingPath\vc_redist.x64.exe")
+        Start-Sleep -Seconds 5
         & "$workingPath\vc_redist.x64.exe" /s
+        Start-Sleep -Seconds 5
         cmd /c """$workingPath\$iteration"" -v >nul 2>&1"
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  YARA was still unable to run. Skipping YARA scanning."
