@@ -38,7 +38,7 @@ Three environment variables _(ie: $env:variableName)_ must be furnished, either 
 
 * [Yara](https://github.com/VirusTotal/yara) 4.1.3-1755 (32- & 64-bit) & COPYING document
 * Florian Roth's YARA definitions for Log4Shell as of 13th December 2021
-* [Luna]https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell
+* [Luna](https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell)
 ## Credits
 This script was written by seagull for Datto RMM and the wider MSP Community. It may be freely copied, edited and redistributed provided credits to Datto, seagull & a link to this GitHub repo remain in the comments.  
 YARA is a tool by the VirusTotal project. The definitions used here were created by Florian Roth.  
