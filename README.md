@@ -44,4 +44,4 @@ This script was written by seagull for Datto RMM and the wider MSP Community. It
 YARA is a tool by the VirusTotal project. The definitions used here were created by Florian Roth.  
 www.datto.com/rmm
 
-Forked and modified by [ProVal Tech](www.provaltech.com)
+Forked and modified by [ProVal Tech](https://www.provaltech.com)
