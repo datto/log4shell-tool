@@ -32,14 +32,16 @@
     - Editing some formatting
     - Implemented Everything search option
     - Implemented Luna scan from https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell
-    - Implemented C++ installation
+    - Added Robocopy option before using Get-ChildItem
+    - Implemented PowerShell upgrade
 #>
 [CmdletBinding()]
 param (
     [Parameter(Mandatory=$false)][ValidateSet(1,2,3)][int]$usrScanscope = $env:usrScanscope,
     [Parameter(Mandatory=$false)][bool]$usrUpdateDefs = [System.Convert]::ToBoolean($env:usrUpdateDefs),
     [Parameter(Mandatory=$false)][ValidateSet('Y','N','X')][char]$usrMitigate = $env:usrMitigate,
-    [Parameter(Mandatory=$false)][switch]$EverythingSearch
+    [Parameter(Mandatory=$false)][switch]$EverythingSearch,
+    [Parameter(Mandatory=$false)][switch]$UpdatePowershell
 )
 
 #region Bootstrap
@@ -232,7 +234,9 @@ function Update-PowerShell {
     }
 }
 Set-Environment
-Update-PowerShell
+if($UpdatePowershell) {
+    Update-PowerShell
+}
 if($powershellUpgraded) { return }
 if($powershellOutdated) { return }
 #endregion
