@@ -9,6 +9,7 @@ _By Datto, For the MSP Community_
 - Implemented Everything search option
 - Implemented Luna scan from https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell
 - Overhauled logging system
+- Added Robocopy option before using Get-ChildItem
 
 ## Summary
 This is a PowerShell-based script that can be run on a Windows system (it has been neither written for, nor tested with, other platforms) to:
