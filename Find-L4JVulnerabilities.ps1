@@ -434,7 +434,7 @@ if(-not $skipYARA) {
 
 Write-Log -Text "- Scanning for known vulnerable libraries via Luna scan."
 Write-Log -Text "Ref: https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell"
-$lunaUrl = "https://github.com/lunasec-io/lunasec/releases/download/v1.3.0-log4shell/log4shell_1.3.0-log4shell_Windows_x86_64.exe"
+$lunaUrl = "https://github.com/lunasec-io/lunasec/releases/download/v1.6.1-log4shell/log4shell_1.6.1-log4shell_Windows_x86_64.exe"
 $lunaPath = "$workingPath\log4shell.exe"
 Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
