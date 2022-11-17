@@ -404,6 +404,7 @@ Write-Log -Text "Scanning $($arrFiles.Length) total files for potential vulnerab
 #scan i: JARs containing vulnerable Log4j code
 Write-Log -Text "Scanning for JAR files containing potentially insecure Log4j code."
 $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
+    Write-Verbose -Message "Running insecure code scan on file '$_'"
     if (Select-String -Quiet -Path $_ "JndiLookup.class") {
         Write-Log -Text "! ALERT: Potentially vulnerable file at $($_)!" -Type WARN
         $script:varDetection = 1
@@ -414,6 +415,7 @@ if(-not $skipYARA) {
     #scan ii: YARA for logfiles & JARs
     Write-Log -Text "Scanning LOGs, TXTs and JARs for common attack strings via YARA scan."
     foreach ($file in $arrFiles) {
+        Write-Verbose -Message "Running YARA scan on file '$file'"
         if ($file -notmatch "Find-L4JVulnerabilities|yara-log|luna-log|L4Jdetections|L4JConsoleLog|luna\.log") {
             $yaResult = $null
             $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
@@ -432,15 +434,18 @@ if(-not $skipYARA) {
     }
 }
 
-Write-Log -Text "- Scanning for known vulnerable libraries via Luna scan."
+Write-Log -Text "Scanning for known vulnerable libraries via Luna scan"
 Write-Log -Text "Ref: https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell"
 $lunaUrl = "https://github.com/lunasec-io/lunasec/releases/download/v1.6.1-log4shell/log4shell_1.6.1-log4shell_Windows_x86_64.exe"
 $lunaPath = "$workingPath\log4shell.exe"
+Write-Log -Text "Downloading Luna scanner (log4shell)"
 Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 (New-Object System.Net.WebClient).DownloadFile($lunaUrl,$lunaPath)
 foreach($drive in $script:varDrives) {
-    $lunaResults = @(cmd /c """$lunaPath"" s --json $drive\ 2>&1")
+    Write-Log -Text "Starting Luna scan for drive '$drive'"
+    $lunaResults = @(cmd /c """$lunaPath"" scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1")
+    Write-Log -Text "Completed Luna scan for drive '$drive'"
     Add-Content -Value $lunaResults -Path $lunaLog
     foreach($entry in $lunaResults) {
         if($entry -match """severity"":") {
