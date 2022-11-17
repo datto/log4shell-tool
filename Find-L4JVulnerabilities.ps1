@@ -440,7 +440,7 @@ Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 (New-Object System.Net.WebClient).DownloadFile($lunaUrl,$lunaPath)
 foreach($drive in $script:varDrives) {
-    $lunaResults = @(cmd /c """$lunaPath"" s --json $drive\ 2>&1")
+    $lunaResults = @(cmd /c """$lunaPath"" scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1")
     Add-Content -Value $lunaResults -Path $lunaLog
     foreach($entry in $lunaResults) {
         if($entry -match """severity"":") {
