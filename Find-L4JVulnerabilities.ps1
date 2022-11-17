@@ -387,7 +387,7 @@ if($EverythingSearch) {
             $roboCopyLogPath = "$workingPath\log4jfilescan.csv"
             Write-Log -Text "Starting robocopy scan of '$drive\' for .jar, .txt, and .log files."
             Remove-Item -Path $roboCopyLogPath -ErrorAction SilentlyContinue
-            $robocopyExitCode = (Start-Process -FilePath robocopy -ArgumentList "$drive\ $drive\DOESNOTEXIST1000 *.jar *.txt *.log /S /XJ /L /FP /NS /NC /NDL /NJH /NJS /r:0 /w:0 /LOG:$roboCopyLogPath" -Wait -PassThru).ExitCode
+            $robocopyExitCode = (Start-Process -FilePath robocopy -ArgumentList "$drive\ $drive\DOESNOTEXIST1000 *.jar *.txt *.log /S /XJ /L /FP /NS /NC /NDL /NJH /NJS /r:0 /w:0 /LOG:$roboCopyLogPath" -Wait -PassThru -NoNewWindow).ExitCode
             if((-not (Test-Path -Path "$workingPath\log4jfilescan.csv")) -or ($robocopyExitCode -ge 16)) { throw }
             $filesDetected = Import-Csv -Path $roboCopyLogPath -Header H1 | Select-Object -ExpandProperty H1
             Write-Log -Text "Robocopy found $($filesDetected.Count) files to scan on '$drive\'"
@@ -418,7 +418,7 @@ if(-not $skipYARA) {
         Write-Verbose -Message "Running YARA scan on file '$file'"
         if ($file -notmatch "Find-L4JVulnerabilities|yara-log|luna-log|L4Jdetections|L4JConsoleLog|luna\.log") {
             $yaResult = $null
-            $yaResult = cmd /c """$workingPath\yara$varch.exe"" ""$workingPath\yara.yar"" ""$file"" -s"
+            $yaResult = & "$workingPath\yara$varch.exe" "$workingPath\yara.yar" "$file" -s
             if ($yaResult) {
                 Write-Log -Text "====================================================="
                 $script:varDetection = 1
@@ -444,7 +444,7 @@ Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
 (New-Object System.Net.WebClient).DownloadFile($lunaUrl,$lunaPath)
 foreach($drive in $script:varDrives) {
     Write-Log -Text "Starting Luna scan for drive '$drive'"
-    $lunaResults = @(cmd /c """$lunaPath"" scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1")
+    $lunaResults = & $lunaPath scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1
     Write-Log -Text "Completed Luna scan for drive '$drive'"
     Add-Content -Value $lunaResults -Path $lunaLog
     foreach($entry in $lunaResults) {
