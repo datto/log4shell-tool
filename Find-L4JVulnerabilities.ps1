@@ -400,17 +400,69 @@ if($EverythingSearch) {
     }
 }
 Write-Log -Text "Scanning $($arrFiles.Length) total files for potential vulnerabilities."
+#region Ticket T20221228.0055
+$MD5_BAD = @{
+    # JndiManager.class (source: https://github.com/nccgroup/Cyber-Defence/blob/master/Intelligence/CVE-2021-44228/modified-classes/md5sum.txt)
+    "04fdd701809d17465c17c7e603b1b202" = "log4j 2.9.0 - 2.11.2"
+    "21f055b62c15453f0d7970a9d994cab7" = "log4j 2.13.0 - 2.13.3"
+    "3bd9f41b89ce4fe8ccbf73e43195a5ce" = "log4j 2.6 - 2.6.2"
+    "415c13e7c8505fb056d540eac29b72fa" = "log4j 2.7 - 2.8.1"
+    "5824711d6c68162eb535cc4dbf7485d3" = "log4j 2.12.0 - 2.12.1"
+    "102cac5b7726457244af1f44e54ff468" = "log4j 2.12.2"
+    "6b15f42c333ac39abacfeeeb18852a44" = "log4j 2.1 - 2.3"
+    "8b2260b1cce64144f6310876f94b1638" = "log4j 2.4 - 2.5"
+    "a193703904a3f18fb3c90a877eb5c8a7" = "log4j 2.8.2"
+    "f1d630c48928096a484e4b95ccb162a0" = "log4j 2.14.0 - 2.14.1"
+    "5d253e53fa993e122ff012221aa49ec3" = "log4j 2.15.0"
+    "ba1cf8f81e7b31c709768561ba8ab558" = "log4j 2.16.0"
+    '1B6E6DD47D8084ABDE61CAA28C96B7A3' = "log4j test-reallynotbad"
+}
 
-#scan i: JARs containing vulnerable Log4j code
+# Known GOOD
+$MD5_GOOD = @{
+    "3dc5cf97546007be53b2f3d44028fa58" = "log4j 2.17.0"
+    "3c3a43af0930a658716b870e66db1569" = "log4j 2.17.1"
+}
+
 Write-Log -Text "Scanning for JAR files containing potentially insecure Log4j code."
 $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
     Write-Verbose -Message "Running insecure code scan on file '$_'"
-    if (Select-String -Quiet -Path $_ "JndiLookup.class") {
-        Write-Log -Text "! ALERT: Potentially vulnerable file at $($_)!" -Type WARN
-        $script:varDetection = 1
+
+    If (!(Test-Path $env:TEMP\extract)) {
+        New-Item -ItemType Directory -Path $env:TEMP\extract | Out-Null
+    } else {
+        remove-item -Path $env:TEMP\extract -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path $env:TEMP\extract | Out-Null
+    }
+    [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($_, "$env:TEMP\extract") | Out-Null
+    $Files = Get-ChildItem $env:TEMP\extract -Recurse | Where-Object -Property Name -match 'JNDIManager.class'
+    If ($Files) {
+        foreach ($file in $files) {
+            #found a matching jndimanager.class file.
+            $checksum = (Get-FileHash -Algorithm MD5 -Path $file.FullName).hash
+            if ($checksum -in $MD5_BAD.keys ) {
+                Write-Log -Text "MD5 found in bad list referencing $($MD5_BAD.$checksum)" -Type WARN
+                #if it's bad, check for jndilookup.class, it will be two directories up under the lookup directory.
+                $path = Get-Childitem ($File.PSParentPath).replace("\$($file.directory.name)", '')
+                
+                $script:varDetection = 1
+            } elseif ($checksum -in $MD5_GOOD.keys) {
+                Write-Log -Text "MD5 found in good list referencing $($MD5_BAD.$checksum)" -Type Log
+                $script:varDetection = 0
+            } else {
+                Write-Log -Text 'MD5 was not found in any list' -Type Log
+                $script:varDetection = 0
+            }
+        }
     }
 }
 
+
+if (Select-String -Quiet -Path $_ "JndiLookup.class") {
+    Write-Log -Text "! ALERT: Potentially vulnerable file at $($_)!" -Type WARN
+}
+#endregion
 if(-not $skipYARA) {
     #scan ii: YARA for logfiles & JARs
     Write-Log -Text "Scanning LOGs, TXTs and JARs for common attack strings via YARA scan."
