@@ -396,6 +396,7 @@ if($EverythingSearch) {
             Write-Log -Text "Robocopy search failed. Falling back to Get-ChildItem." -Type WARN
             $filesDetected = Get-ChildItem -path "$drive\" -Recurse -Force -ErrorAction 0 | Where-Object {$_.Extension -in ".jar",".log",".txt"} | Select-Object -ExpandProperty FullName
             Write-Log -Text "Get-ChildItem found $($filesDetected.Count) files to scan on '$drive\'"
+            $arrFiles += $filesDetected
         }
     }
 }
@@ -415,7 +416,6 @@ $MD5_BAD = @{
     "f1d630c48928096a484e4b95ccb162a0" = "log4j 2.14.0 - 2.14.1"
     "5d253e53fa993e122ff012221aa49ec3" = "log4j 2.15.0"
     "ba1cf8f81e7b31c709768561ba8ab558" = "log4j 2.16.0"
-    '1B6E6DD47D8084ABDE61CAA28C96B7A3' = "log4j test-reallynotbad"
 }
 
 # Known GOOD
@@ -424,6 +424,7 @@ $MD5_GOOD = @{
     "3c3a43af0930a658716b870e66db1569" = "log4j 2.17.1"
 }
 
+[System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
 Write-Log -Text "Scanning for JAR files containing potentially insecure Log4j code."
 $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
     Write-Verbose -Message "Running insecure code scan on file '$_'"
@@ -434,8 +435,8 @@ $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
         remove-item -Path $env:TEMP\extract -Recurse -Force -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path $env:TEMP\extract | Out-Null
     }
-    [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($_, "$env:TEMP\extract") | Out-Null
+    Remove-Item $env:TEMP\extract -Recurse -Force
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($_, "$env:TEMP\extract") 2>$null | Out-Null
     $Files = Get-ChildItem $env:TEMP\extract -Recurse | Where-Object -Property Name -match 'JNDIManager.class'
     If ($Files) {
         foreach ($file in $files) {
@@ -444,24 +445,20 @@ $arrFiles | Where-Object {$_ -match '\.jar$'} | ForEach-Object {
             if ($checksum -in $MD5_BAD.keys ) {
                 Write-Log -Text "MD5 found in bad list referencing $($MD5_BAD.$checksum)" -Type WARN
                 #if it's bad, check for jndilookup.class, it will be two directories up under the lookup directory.
-                $path = Get-Childitem ($File.PSParentPath).replace("\$($file.directory.name)", '')
+                $ItemPath = Get-item ($File.PSParentPath).replace("\$($file.directory.name)", '')
+                if (Test-Path "$($ItemPath.PSParentPath)\lookup\JndiLookup.class"){Write-Host "lookupclass file found on $_"; $script:varDetection = 1 } else {if($script:varDetection = 1){$script:Vardetection = 1} else {$script:varDetection = 0}}
                 
-                $script:varDetection = 1
             } elseif ($checksum -in $MD5_GOOD.keys) {
                 Write-Log -Text "MD5 found in good list referencing $($MD5_BAD.$checksum)" -Type Log
-                $script:varDetection = 0
+                if($script:varDetection = 1){$script:Vardetection = 1} else {$script:varDetection = 0}
             } else {
                 Write-Log -Text 'MD5 was not found in any list' -Type Log
-                $script:varDetection = 0
+                if($script:varDetection = 1){$script:Vardetection = 1} else {$script:varDetection = 0}
             }
         }
     }
 }
 
-
-if (Select-String -Quiet -Path $_ "JndiLookup.class") {
-    Write-Log -Text "! ALERT: Potentially vulnerable file at $($_)!" -Type WARN
-}
 #endregion
 if(-not $skipYARA) {
     #scan ii: YARA for logfiles & JARs
