@@ -438,7 +438,8 @@ $arrFiles | Where-Object { $_ -match '\.jar$' } | ForEach-Object {
         $checksum = (Get-FileHash -Algorithm MD5 -Path $jndiManagerFile.FullName).Hash
         if ($checksum -in $MD5_BAD.keys) {
             #moving alert down to test path for the lookup class to verify undeniably that this is a found issue.
-            Write-Log -Text "MD5 found in bad list referencing $($MD5_BAD.$checksum)" -Type WARN
+            #Changing this to a log rather than a warn, because, just because it's found in the bad list doesn't mean it's effected until it goes into the next check.
+            Write-Log -Text "MD5 found in bad list referencing $($MD5_BAD.$checksum)" -Type Log
             #if it's bad, check for jndilookup.class, it will be two directories up under the lookup directory.
             $parentOfParentDirectory = $jndiManagerFile.Directory.Parent
             if (Test-Path "$parentOfParentDirectory\lookup\JndiLookup.class") {
