@@ -3,7 +3,10 @@
     Log4j Vulnerability (CVE-2021-44228) file scanner [windows] :: build 8b/seagull - ProVal Tech Fork
 .EXAMPLE
     Runs the scan tool, using Everything (https://www.voidtools.com) to search for files. Updates YARA definitions and adds the env variable LOG4J_FORMAT_MSG_NO_LOOKUPS mitigation.
-    PS C:\> .\scanner-8b.ps1 -EverythingSearch -usrUpdateDefs $true -usrMitigate 'Y'
+    PS C:\> .\scanner-8b.ps1 -EverythingSearch -usrUpdateDefs $true -usrMitigate 'Y' 
+
+       Runs the scan tool, using Everything (https://www.voidtools.com) to search for files and compare the secure md5 hashes with respect to the CVE-2021-44228.
+    PS C:\> .\scanner-8b.ps1 -EverythingSearch -usrMitigate 'Y' -SkipYARA -SkipLuna
 .PARAMETER usrScanscope
     Sets the scope for drive scanning. -EverythingSearch overrides this setting.
     1 - Home drive only
@@ -18,6 +21,10 @@
     'Y' - Mitigation will be applied.
     'N' - Mitigation will be removed.
     'X' - Take no action.
+.PARAMETER SkipYara
+    Use this switch to skip YARA scan
+.PARAMETER SkipLuna
+    Use this switch to skip Luna scan
 .PARAMETER EverythingSearch
     Use this switch to enable searching with Everything (https://www.voidtools.com) instead of Get-ChildItem.
     This will install the PSEverything module from PSGallery and temporarily install the Everything service.
