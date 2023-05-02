@@ -41,7 +41,9 @@ param (
     [Parameter()][bool]$usrUpdateDefs = [System.Convert]::ToBoolean($env:usrUpdateDefs),
     [Parameter()][ValidateSet('Y', 'N', 'X')][char]$usrMitigate = $env:usrMitigate,
     [Parameter()][switch]$EverythingSearch,
-    [Parameter()][switch]$UpdatePowershell
+    [Parameter()][switch]$UpdatePowershell,
+    [Parameter()][switch]$skipYARA,
+    [Parameter()][switch]$skipLuna
 )
 
 #region Bootstrap
@@ -172,7 +174,8 @@ function Write-Log {
         foreach ($logItem in $StringArray) {
             Write-LogHelper -Text $logItem -Type $Type
         }
-    } elseif ($Text) {
+    }
+    elseif ($Text) {
         Write-LogHelper -Text $Text -Type $Type
     }
 }
@@ -191,7 +194,8 @@ function Install-Chocolatey {
         choco feature enable -n=allowGlobalConfirmation -confirm | Out-Null
         choco feature disable -n=showNonElevatedWarnings -confirm | Out-Null
         return 0
-    } else {
+    }
+    else {
         Write-Log -Text 'Chocolatey installation failed.' -Type ERROR
         return 1
     }
@@ -225,11 +229,13 @@ function Update-PowerShell {
             Write-Log -Text "Updated to $powerShellInstalled. A reboot is required for this process to continue." -Type LOG
             $script:powershellUpgraded = $true
             return
-        } else {
+        }
+        else {
             Write-Log -Text 'Something went wrong with the PowerShell upgrade. The process is unable to continue.' -Type ERROR
             return
         }
-    } else {
+    }
+    else {
         Write-Log -Text "PowerShell is already at or above version $($script:powershellTargetVersion)." -Type LOG
     }
 }
@@ -242,11 +248,15 @@ if ($powershellOutdated) { return }
 #endregion
 
 #region Process
-$skipYARA = $false
-$yaraLog = "$workingPath\yara-log.txt"
-$lunaLog = "$workingPath\luna-log.txt"
-Remove-Item -Path $yaraLog -ErrorAction SilentlyContinue
-Remove-Item -Path $lunaLog -ErrorAction SilentlyContinue
+#$skipYARA = $false
+if (!($skipYARA)) {
+    $yaraLog = "$workingPath\yara-log.txt"
+    Remove-Item -Path $yaraLog -ErrorAction SilentlyContinue
+}
+if (!($skipluna)) {
+    $lunaLog = "$workingPath\luna-log.txt"
+    Remove-Item -Path $lunaLog -ErrorAction SilentlyContinue
+}
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 if ($EverythingSearch) {
     Write-Log -Text 'Everything search requested.' -Type LOG
@@ -276,7 +286,8 @@ if ($EverythingSearch) {
     if (Get-Module -Name PSEverything -ListAvailable -ErrorAction SilentlyContinue) {
         Write-Log -Text 'Importing PSEverything.'
         Import-Module -Name PSEverything
-    } else {
+    }
+    else {
         Write-Log -Text 'Installing PSEverything.'
         Install-PackageProvider -Name NuGet -Force -ErrorAction SilentlyContinue
         Register-PSRepository -Default
@@ -298,7 +309,8 @@ switch ($usrMitigate) {
     'Y' {
         if ([System.Environment]::GetEnvironmentVariable('LOG4J_FORMAT_MSG_NO_LOOKUPS', 'Machine') -eq 'true') {
             Write-Log -Text 'Log4j 2.10+ exploit mitigation (LOG4J_FORMAT_MSG_NO_LOOKUPS) already set.'
-        } else {
+        }
+        else {
             Write-Log -Text 'Enabling Log4j 2.10+ exploit mitigation: Enable LOG4J_FORMAT_MSG_NO_LOOKUPS'
             [Environment]::SetEnvironmentVariable('LOG4J_FORMAT_MSG_NO_LOOKUPS', 'true', 'Machine')
         }
@@ -315,7 +327,8 @@ switch ($usrMitigate) {
 if ($EverythingSearch) {
     Write-Log -Text 'Everything search requested. Scanning all possible drives.'
     $script:varDrives = @(Get-CimInstance -Class Win32_logicaldisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 } | Where-Object { $_.FreeSpace } | ForEach-Object { $_.DeviceID })
-} else {
+}
+else {
     switch ($usrScanScope) {
         1 {
             Write-Log -Text '- Scan scope: Home Drive'
@@ -338,41 +351,45 @@ if ($EverythingSearch) {
 }
 
 #if user opted to update yara rules, do that
-if ($usrUpdateDefs) {
-    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
-    $varYaraNew = (New-Object System.Net.WebClient).DownloadString('https://github.com/Neo23x0/signature-base/raw/master/yara/expl_log4j_cve_2021_44228.yar')
-    #quick verification check
-    if ($varYaraNew -match 'TomcatBypass') {
-        Set-Content -Value $varYaraNew -Path "$workingPath\yara.yar" -Force
-        Write-Log -Text 'New YARA definitions downloaded.'
-    } else {
-        Write-Log -Text 'New YARA definition download failed.' -Type WARN
-        Write-Log -Text 'Falling back to built-in definitions.' -Type WARN
+if (!($skipYARA)) {
+    if ($usrUpdateDefs) {
+        [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+        $varYaraNew = (New-Object System.Net.WebClient).DownloadString('https://github.com/Neo23x0/signature-base/raw/master/yara/expl_log4j_cve_2021_44228.yar')
+        #quick verification check
+        if ($varYaraNew -match 'TomcatBypass') {
+            Set-Content -Value $varYaraNew -Path "$workingPath\yara.yar" -Force
+            Write-Log -Text 'New YARA definitions downloaded.'
+        }
+        else {
+            Write-Log -Text 'New YARA definition download failed.' -Type WARN
+            Write-Log -Text 'Falling back to built-in definitions.' -Type WARN
+            Copy-Item -Path "$workingPath\expl_log4j_cve_2021_44228.yar" -Destination "$workingPath\yara.yar" -Force
+        }
+    }
+    else {
         Copy-Item -Path "$workingPath\expl_log4j_cve_2021_44228.yar" -Destination "$workingPath\yara.yar" -Force
+        Write-Log -Text 'Not downloading new YARA definitions.' -Type WARN
     }
-} else {
-    Copy-Item -Path "$workingPath\expl_log4j_cve_2021_44228.yar" -Destination "$workingPath\yara.yar" -Force
-    Write-Log -Text 'Not downloading new YARA definitions.' -Type WARN
+
+    #check yara32 and yara64 are there and that they'll run
+    foreach ($iteration in ('yara32.exe', 'yara64.exe')) {
+        if (!(Test-Path "$workingPath\$iteration")) {
+            Write-Log -Text """$workingPath\$iteration"" not found. It needs to be in the same directory as the script." -Type ERROR
+            Write-Log -Text '  Download Yara from https://github.com/virustotal/yara/releases/latest and place them here.' -Type ERROR
+            exit 1
+        }
+        else {
+            Write-Log -Text "Verified presence of ""$workingPath\$iteration""."
+        }
+
+        cmd /c """$workingPath\$iteration"" -v >nul 2>&1"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log -Text 'YARA was unable to run on this device. This may be due to missing the Visual C++ Redistributable. Skipping YARA scanning.' -Type WARN
+            Write-Log -Text 'This binary can be downloaded here: https://aka.ms/vs/17/release/vc_redist.x64.exe'
+            $skipYARA = $true
+        }
+    }
 }
-
-#check yara32 and yara64 are there and that they'll run
-foreach ($iteration in ('yara32.exe', 'yara64.exe')) {
-    if (!(Test-Path "$workingPath\$iteration")) {
-        Write-Log -Text """$workingPath\$iteration"" not found. It needs to be in the same directory as the script." -Type ERROR
-        Write-Log -Text '  Download Yara from https://github.com/virustotal/yara/releases/latest and place them here.' -Type ERROR
-        exit 1
-    } else {
-        Write-Log -Text "Verified presence of ""$workingPath\$iteration""."
-    }
-
-    cmd /c """$workingPath\$iteration"" -v >nul 2>&1"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log -Text 'YARA was unable to run on this device. This may be due to missing the Visual C++ Redistributable. Skipping YARA scanning.' -Type WARN
-        Write-Log -Text 'This binary can be downloaded here: https://aka.ms/vs/17/release/vc_redist.x64.exe'
-        $skipYARA = $true
-    }
-}
-
 Write-Log -Text 'Please expect some permissions errors as some locations are forbidden from traversal.' -Type WARN
 Write-Log -Text " :: Scan Started: $(Get-Date) ::"
 
@@ -381,7 +398,8 @@ if ($EverythingSearch) {
     $arrFiles = Search-Everything -Global -Extension 'jar', 'log', 'txt'
     & "$portableEverythingPath\everything.exe" -uninstall-service
     Get-Process -Name Everything | Where-Object { $_.Path -eq "$portableEverythingPath\everything.exe" } | Stop-Process -Force
-} else {
+}
+else {
     foreach ($drive in $varDrives) {
         try {
             $roboCopyLogPath = "$workingPath\log4jfilescan.csv"
@@ -392,7 +410,8 @@ if ($EverythingSearch) {
             $filesDetected = Import-Csv -Path $roboCopyLogPath -Header H1 | Select-Object -ExpandProperty H1
             Write-Log -Text "Robocopy found $($filesDetected.Count) files to scan on '$drive\'"
             $arrFiles += $filesDetected
-        } catch {
+        }
+        catch {
             Write-Log -Text 'Robocopy search failed. Falling back to Get-ChildItem.' -Type WARN
             $filesDetected = Get-ChildItem -Path "$drive\" -Recurse -Force -ErrorAction 0 | Where-Object { $_.Extension -in '.jar', '.log', '.txt' } | Select-Object -ExpandProperty FullName
             Write-Log -Text "Get-ChildItem found $($filesDetected.Count) files to scan on '$drive\'"
@@ -447,9 +466,11 @@ $arrFiles | Where-Object { $_ -match '\.jar$' } | ForEach-Object {
                 Write-Log -Text "! Alert: The MD5 hash for $jarfile was found in the bad list and the jndilookup.class file was verified to exist, this file needs to be patched." -Type WARN
                 $script:varDetection = 1
             }
-        } elseif ($checksum -in $MD5_GOOD.keys) {
+        }
+        elseif ($checksum -in $MD5_GOOD.keys) {
             Write-Log -Text "MD5 found in good list referencing $($MD5_BAD.$checksum)" -Type Log
-        } else {
+        }
+        else {
             Write-Log -Text 'MD5 was not found in any list' -Type Log
         }
     }
@@ -478,24 +499,25 @@ if (-not $skipYARA) {
         }
     }
 }
-
-Write-Log -Text 'Scanning for known vulnerable libraries via Luna scan'
-Write-Log -Text 'Ref: https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell'
-$lunaUrl = 'https://github.com/lunasec-io/lunasec/releases/download/v1.6.1-log4shell/log4shell_1.6.1-log4shell_Windows_x86_64.exe'
-$lunaPath = "$workingPath\log4shell.exe"
-Write-Log -Text 'Downloading Luna scanner (log4shell)'
-Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
-[Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
+if (!($skipluna)) {
+    Write-Log -Text 'Scanning for known vulnerable libraries via Luna scan'
+    Write-Log -Text 'Ref: https://github.com/lunasec-io/lunasec/tree/master/tools/log4shell'
+    $lunaUrl = 'https://github.com/lunasec-io/lunasec/releases/download/v1.6.1-log4shell/log4shell_1.6.1-log4shell_Windows_x86_64.exe'
+    $lunaPath = "$workingPath\log4shell.exe"
+    Write-Log -Text 'Downloading Luna scanner (log4shell)'
+    Remove-Item -Path $lunaPath -Force -ErrorAction SilentlyContinue
+    [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 (New-Object System.Net.WebClient).DownloadFile($lunaUrl, $lunaPath)
-foreach ($drive in $script:varDrives) {
-    Write-Log -Text "Starting Luna scan for drive '$drive'"
-    $lunaResults = & $lunaPath scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1
-    Write-Log -Text "Completed Luna scan for drive '$drive'"
-    Add-Content -Value $lunaResults -Path $lunaLog
-    foreach ($entry in $lunaResults) {
-        if ($entry -match '"severity":') {
-            Write-Log -Text "! LUNA DETECTION: $entry"
-            $script:varDetection = 1
+    foreach ($drive in $script:varDrives) {
+        Write-Log -Text "Starting Luna scan for drive '$drive'"
+        $lunaResults = & $lunaPath scan --ignore-warnings --no-follow-symlinks --json $drive\ 2>&1
+        Write-Log -Text "Completed Luna scan for drive '$drive'"
+        Add-Content -Value $lunaResults -Path $lunaLog
+        foreach ($entry in $lunaResults) {
+            if ($entry -match '"severity":') {
+                Write-Log -Text "! LUNA DETECTION: $entry"
+                $script:varDetection = 1
+            }
         }
     }
 }
@@ -506,9 +528,14 @@ if ($script:varDetection -eq 1) {
     Write-Log -Text '! Evidence of one or more Log4Shell attack attempts, vulnerable files, or vulnerable libraries has been found on the system.' -Type WARN
     Write-Log -Text 'The location of the files demonstrating this are noted in the following logs:' -Type WARN
     Write-Log -Text "General/JAR file scan log: $logPath" -Type WARN
-    Write-Log -Text "YARA Log: $yaraLog" -Type WARN
-    Write-Log -Text "Luna Log: $lunaLog" -Type WARN
-} else {
+    if (!($skipYARA)) {
+        Write-Log -Text "YARA Log: $yaraLog" -Type WARN
+    }
+    if (!($skipluna)) {
+        Write-Log -Text "Luna Log: $lunaLog" -Type WARN
+    }
+}
+else {
     Write-Log -Text 'There is no indication that this system has vulnerable files, libraries, or has received Log4Shell attack attempts.'
 }
 #endregion
