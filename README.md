@@ -34,7 +34,10 @@ Three environment variables _(ie: $env:variableName)_ must be furnished, either 
     * Value of Y: Inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `TRUE`
     * Value of N: De-inoculate system by setting `LOG4J_FORMAT_MSG_NO_LOOKUPS` environment variable to `FALSE` (Use with caution!)
     * Value of X: Ignore inoculation subroutine entirely
-
+* SkipYara
+    * If it is true then the Yara scan will be suppressed
+* SkipLuna
+    * If it is true then the Luna scan will be suppressed
 ## Included in package
 
 * [Yara](https://github.com/VirusTotal/yara) 4.1.3-1755 (32- & 64-bit) & COPYING document
