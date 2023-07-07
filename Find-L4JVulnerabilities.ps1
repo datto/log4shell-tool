@@ -470,13 +470,18 @@ $arrFiles | Where-Object { $_ -match '\.jar$' } | ForEach-Object {
             $parentOfParentDirectory = $jndiManagerFile.Directory.Parent
             if (Test-Path "$parentOfParentDirectory\lookup\JndiLookup.class") {
                 #Write-Host "lookupclass file found on $_"
-                Write-Log -Text "! Alert: The MD5 hash for $jarfile was found in the bad list and the jndilookup.class file was verified to exist, this file needs to be patched." -Type WARN
+                Write-Log -Text "! Alert: The MD5 hash for $jarfile was found in the bad list and the jndilookup.class file was verified to exist at $parentOfParentDirectory\lookup\JndiLookup.class, this file needs to be patched." -Type WARN
+                $script:varDetection = 1
+            }
+            else {
+                #Write-Host "lookupclass file didn't found on $_"
+                Write-Log -Text "! Alert: The MD5 hash for $jarfile was found in the bad list but the jndilookup.class file doesn't exist." -Type WARN
                 $script:varDetection = 1
             }
         }
         elseif ($checksum -in $MD5_GOOD.keys) {
             Write-Log -Text "MD5 found in good list referencing $($MD5_BAD.$checksum)" -Type Log
-        }
+        }  
         else {
             Write-Log -Text 'MD5 was not found in any list' -Type Log
         }
