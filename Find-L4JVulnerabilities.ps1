@@ -475,7 +475,7 @@ $arrFiles | Where-Object { $_ -match '\.jar$' } | ForEach-Object {
             }
             else {
                 #Write-Host "lookupclass file didn't found on $_"
-                Write-Log -Text "! Alert: The MD5 hash for $jarfile was found in the bad list but the jndilookup.class file doesn't exist." -Type WARN
+                Write-Log -Text "The MD5 hash for $jarfile was found in the bad list but the jndilookup.class file doesn't exist." -Type Log
                 $script:varDetection = 1
             }
         }
